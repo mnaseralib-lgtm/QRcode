@@ -6,9 +6,16 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyA2RHTatE-2KG0Nl9q6Let
 
 let currentMovement = 'حضور';
 let scanCount = Number(localStorage.getItem('qr_scan_count') || 0);
+
+// العناصر الثابتة (DOM elements)
 const countEl = document.getElementById('count');
 const logList = document.getElementById('logList');
 const messageEl = document.getElementById('message');
+const manualIdInput = document.getElementById('manualId');
+const manualSendButton = document.getElementById('manualSend');
+const startButton = document.getElementById('startBtn');
+const stopButton = document.getElementById('stopBtn');
+
 countEl.textContent = scanCount;
 
 // تهيئة ماسح QR
@@ -38,7 +45,6 @@ function updateScanCount() {
 // دالة تحديث سجل الواجهة (UI)
 function appendLog(employeeID, movement, time, status) {
   const listItem = document.createElement('li');
-  // تحديد اللون بناءً على حالة الإرسال
   const statusColor = status === 'تم الإرسال' ? 'green' : 'red';
   
   listItem.innerHTML = `
@@ -56,12 +62,13 @@ function addLogEntryToStorage(employeeID, movement, status) {
     const now = new Date();
     const localTime = now.toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'});
 
-    logs.push({
+    const newEntry = {
         employeeID,
         movement,
-        time: localTime, // نستخدم الوقت المحلي المخزّن مباشرة للعرض
+        time: localTime, 
         status
-    });
+    };
+    logs.push(newEntry);
     
     // حافظ على آخر 20 إدخال فقط لمنع امتلاء التخزين المحلي
     if (logs.length > 20) {
@@ -69,8 +76,7 @@ function addLogEntryToStorage(employeeID, movement, status) {
     }
     localStorage.setItem('qr_log_list', JSON.stringify(logs));
     
-    // إعادة السجل المضاف لتحديث الواجهة
-    return { employeeID, movement, time: localTime, status };
+    return newEntry;
 }
 
 // ----------------------------------------------------
@@ -80,7 +86,7 @@ function addLogEntryToStorage(employeeID, movement, status) {
 async function sendRecord(employeeID, movement) {
   showMessage('جارٍ الإرسال...');
   
-  // 1. إيقاف الماسح لمنع القراءة المزدوجة
+  // إيقاف الماسح لمنع القراءة المزدوجة
   if (html5QrCode.isScanning) {
      await html5QrCode.pause(); 
   }
@@ -100,12 +106,14 @@ async function sendRecord(employeeID, movement) {
     });
 
     if (response.ok && response.status === 200) {
-      // افتراض أن أي استجابة ناجحة من السيرفر (GAS) تعني نجاح الإرسال
       isSuccess = true;
       finalStatus = 'تم الإرسال';
       message = `نجاح: ${employeeID} - ${movement}`;
-      updateScanCount(); // يتم العد فقط عند النجاح
+      updateScanCount(); 
     } else {
+      // قراءة نص الاستجابة لمزيد من التفاصيل (في حالة خطأ GAS)
+      const errorText = await response.text();
+      console.error('GAS Error Response:', errorText);
       throw new Error(`خطأ في استجابة الشبكة: ${response.status}`);
     }
   } catch (error) {
@@ -114,14 +122,14 @@ async function sendRecord(employeeID, movement) {
     finalStatus = 'فشل الإرسال';
   } 
   
-  // 2. تحديث السجل المحلي والواجهة
+  // تحديث السجل المحلي والواجهة (UI)
   const logEntry = addLogEntryToStorage(employeeID, movement, finalStatus);
   appendLog(logEntry.employeeID, logEntry.movement, logEntry.time, logEntry.status);
 
-  // 3. عرض رسالة النجاح/الفشل
+  // عرض رسالة النجاح/الفشل
   showMessage(message, !isSuccess);
 
-  // 4. استئناف الماسح بعد فترة وجيزة
+  // استئناف الماسح بعد فترة وجيزة
   setTimeout(() => {
     if (html5QrCode.isScanning) {
         html5QrCode.resume();
@@ -139,8 +147,8 @@ async function startCamera() {
     // تفضيل الكاميرا الخلفية باستخدام facingMode
     const videoConstraints = { facingMode: "environment" }; 
 
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('stopBtn').disabled = false;
+    startButton.disabled = true;
+    stopButton.disabled = false;
 
     await html5QrCode.start(
       videoConstraints,
@@ -155,55 +163,64 @@ async function startCamera() {
     );
     showMessage('الكاميرا تعمل — وجّه الكاميرا نحو QR');
   } catch (e) {
-    console.error(e);
+    console.error('Camera startup error:', e);
     showMessage('تعذر تشغيل الكاميرا — افحص الأذونات', true);
   }
 }
 
 async function stopCamera(){
   try {
-    await html5QrCode.stop();
-    document.getElementById('startBtn').disabled = false;
-    document.getElementById('stopBtn').disabled = true;
+    if (html5QrCode.isScanning) {
+        await html5QrCode.stop();
+    }
+    startButton.disabled = false;
+    stopButton.disabled = true;
     showMessage('تم إيقاف الكاميرا');
   } catch(e){
-    console.error(e);
+    console.error('Camera stop error:', e);
     showMessage('خطأ عند إيقاف الكاميرا', true);
   }
 }
 
-
 // ----------------------------------------------------
-// تهيئة التطبيق (Initialization)
+// تهيئة التطبيق وربط الأحداث (Initialization)
 // ----------------------------------------------------
 
-// Movement buttons
-document.querySelectorAll('.movement').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.movement').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    currentMovement = btn.dataset.movement;
-  });
-});
+function initApp() {
+    // 1. ربط أزرار الحركة (Movement buttons)
+    document.querySelectorAll('.movement').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.movement').forEach(b=>b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        currentMovement = e.currentTarget.dataset.movement;
+      });
+    });
 
-// Manual send
-document.getElementById('manualSend').addEventListener('click', () => {
-  const id = document.getElementById('manualId').value.trim();
-  if (!id) return showMessage('أدخل رقم صالح');
-  
-  sendRecord(id, currentMovement);
-  document.getElementById('manualId').value = ''; // مسح الحقل بعد الإرسال
-});
+    // 2. ربط الإدخال اليدوي (Manual send)
+    manualSendButton.addEventListener('click', () => {
+      const id = manualIdInput.value.trim();
+      if (!id) return showMessage('أدخل رقم صالح', true);
+      
+      sendRecord(id, currentMovement);
+      manualIdInput.value = ''; // مسح الحقل بعد الإرسال
+    });
 
+    // 3. ربط وظائف الكاميرا بالأزرار
+    startButton.addEventListener('click', startCamera);
+    stopButton.addEventListener('click', stopCamera);
+    
+    // 4. تحميل السجل الأولي عند فتح التطبيق
+    loadInitialLogs();
+}
 
-// ربط وظائف الكاميرا بالأزرار
-document.getElementById('startBtn').addEventListener('click', startCamera);
-document.getElementById('stopBtn').addEventListener('click', stopCamera);
-
-
-// تحميل السجل الأولي عند فتح التطبيق
-(function loadInitialLogs(){
+function loadInitialLogs(){
   const logs = JSON.parse(localStorage.getItem('qr_log_list') || '[]');
-  // يتم تحميل السجلات حسب الترتيب المخزن (الأقدم أولاً) ثم يتم عرضها باستخدام prepend (الأحدث أولاً في الواجهة)
-  logs.forEach(entry => appendLog(entry.employeeID, entry.movement, entry.time, entry.status));
-})();
+  // نعرض السجلات بترتيب زمني معكوس (الأحدث أولاً في الواجهة)
+  logs.reverse().forEach(entry => {
+    // نستخدم appendLog لإنشاء العنصر الجديد وعرضه في الواجهة (يتم إضافته إلى الأعلى باستخدام prepend)
+    appendLog(entry.employeeID, entry.movement, entry.time, entry.status);
+  });
+}
+
+// تشغيل دالة التهيئة عند تحميل الصفحة بالكامل
+window.onload = initApp;
