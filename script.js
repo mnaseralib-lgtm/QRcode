@@ -1,9 +1,5 @@
 /*
-  قبل الاستخدام: ضع رابط Web App (Google Apps Script) بعد النشر في GAS_URL
-  خطوات سريعة لنشر GAS:
-  1. في محرر Google Apps Script اختر Deploy -> New deployment -> Web app
-  2. تعيّن "Who has access" إلى "Anyone" أو "Anyone, even anonymous" إذا لزم
-  3. انسخ رابط Web app وأدخله في GAS_URL أدناه
+  هام: ضع رابط Web App (Google Apps Script) بعد النشر في GAS_URL
 */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyA2RHTatE-2KG0Nl9q6LetCHJi233n9yNXh7KuHKGmnRyoALqvdH4zRXMXXiCtTWcHGg/exec'; // <<< ضع هنا رابط الويب الخاص بك!
@@ -19,23 +15,9 @@ countEl.textContent = scanCount;
 const qrCodeElementId = 'reader';
 const html5QrCode = new Html5Qrcode(qrCodeElementId);
 
-// Movement buttons
-document.querySelectorAll('.movement').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.movement').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    currentMovement = btn.dataset.movement;
-  });
-});
-
-// Manual send
-document.getElementById('manualSend').addEventListener('click', () => {
-  const id = document.getElementById('manualId').value.trim();
-  if (!id) return showMessage('أدخل رقم صالح');
-  
-  sendRecord(id, currentMovement);
-  document.getElementById('manualId').value = ''; // مسح الحقل بعد الإرسال
-});
+// ----------------------------------------------------
+// وظائف المساعدة (Helpers)
+// ----------------------------------------------------
 
 function showMessage(msg, isError = false) {
   messageEl.textContent = msg;
@@ -53,27 +35,63 @@ function updateScanCount() {
   localStorage.setItem('qr_scan_count', scanCount);
 }
 
-function appendLog(employeeID, movement, status = 'تم الإرسال') {
+// دالة تحديث سجل الواجهة (UI)
+function appendLog(employeeID, movement, time, status) {
   const listItem = document.createElement('li');
-  const now = new Date().toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'});
+  // تحديد اللون بناءً على حالة الإرسال
+  const statusColor = status === 'تم الإرسال' ? 'green' : 'red';
+  
   listItem.innerHTML = `
     <span class="log-id">${employeeID}</span>
-    <span class="log-movement">${movement} (${now})</span>
-    <span class="log-status">${status}</span>
+    <span class="log-movement">${movement} (${time})</span>
+    <span class="log-status" style="color: ${statusColor};">${status}</span>
   `;
   // أضف العنصر الجديد إلى الأعلى
   logList.prepend(listItem);
 }
 
-// دالة الإرسال إلى Google Sheets
+// دالة إضافة سجل إلى التخزين المحلي
+function addLogEntryToStorage(employeeID, movement, status) {
+    const logs = JSON.parse(localStorage.getItem('qr_log_list') || '[]');
+    const now = new Date();
+    const localTime = now.toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'});
+
+    logs.push({
+        employeeID,
+        movement,
+        time: localTime, // نستخدم الوقت المحلي المخزّن مباشرة للعرض
+        status
+    });
+    
+    // حافظ على آخر 20 إدخال فقط لمنع امتلاء التخزين المحلي
+    if (logs.length > 20) {
+        logs.shift(); // إزالة أقدم إدخال
+    }
+    localStorage.setItem('qr_log_list', JSON.stringify(logs));
+    
+    // إعادة السجل المضاف لتحديث الواجهة
+    return { employeeID, movement, time: localTime, status };
+}
+
+// ----------------------------------------------------
+// وظيفة الإرسال الرئيسية (CORE FUNCTION)
+// ----------------------------------------------------
+
 async function sendRecord(employeeID, movement) {
   showMessage('جارٍ الإرسال...');
-  // منع المسح التلقائي لمدة قصيرة لمنع الإرسالات المكررة
-  await html5QrCode.pause(); 
-
+  
+  // 1. إيقاف الماسح لمنع القراءة المزدوجة
+  if (html5QrCode.isScanning) {
+     await html5QrCode.pause(); 
+  }
+  
   const data = new FormData();
   data.append('employeeID', employeeID);
   data.append('movement', movement);
+
+  let isSuccess = false;
+  let finalStatus = 'فشل الإرسال';
+  let message = '';
 
   try {
     const response = await fetch(GAS_URL, {
@@ -81,39 +99,51 @@ async function sendRecord(employeeID, movement) {
       body: data
     });
 
-    if (response.ok) {
-      updateScanCount();
-      appendLog(employeeID, movement);
-      showMessage(`نجاح: ${employeeID} - ${movement}`, false);
+    if (response.ok && response.status === 200) {
+      // افتراض أن أي استجابة ناجحة من السيرفر (GAS) تعني نجاح الإرسال
+      isSuccess = true;
+      finalStatus = 'تم الإرسال';
+      message = `نجاح: ${employeeID} - ${movement}`;
+      updateScanCount(); // يتم العد فقط عند النجاح
     } else {
       throw new Error(`خطأ في استجابة الشبكة: ${response.status}`);
     }
   } catch (error) {
     console.error('Error sending record:', error);
-    showMessage(`فشل إرسال: ${employeeID} - ${error.message}`, true);
-    appendLog(employeeID, movement, 'فشل الإرسال');
-  } finally {
-    // استئناف المسح التلقائي بعد 3 ثوانٍ
-    setTimeout(() => {
-      html5QrCode.resume();
-    }, 3000);
-  }
+    message = `فشل إرسال: ${employeeID} - ${error.message}`;
+    finalStatus = 'فشل الإرسال';
+  } 
+  
+  // 2. تحديث السجل المحلي والواجهة
+  const logEntry = addLogEntryToStorage(employeeID, movement, finalStatus);
+  appendLog(logEntry.employeeID, logEntry.movement, logEntry.time, logEntry.status);
+
+  // 3. عرض رسالة النجاح/الفشل
+  showMessage(message, !isSuccess);
+
+  // 4. استئناف الماسح بعد فترة وجيزة
+  setTimeout(() => {
+    if (html5QrCode.isScanning) {
+        html5QrCode.resume();
+    }
+  }, 3000); // 3 ثواني تأخير
 }
 
-// تشغيل الكاميرا مع تفضيل الكاميرا الخلفية (المحيط/البيئة)
+
+// ----------------------------------------------------
+// وظائف الكاميرا والتحكم (Camera & Controls)
+// ----------------------------------------------------
+
 async function startCamera() {
   try {
-    // تحديد تفضيل الكاميرا الخلفية باستخدام facingMode
-    const videoConstraints = { 
-        // تفضيل الكاميرا الخلفية. استخدام "environment" يزيد من موثوقية التشغيل على الهواتف
-        facingMode: "environment" 
-    };
+    // تفضيل الكاميرا الخلفية باستخدام facingMode
+    const videoConstraints = { facingMode: "environment" }; 
 
     document.getElementById('startBtn').disabled = true;
     document.getElementById('stopBtn').disabled = false;
 
     await html5QrCode.start(
-      videoConstraints, // تمرير كائن القيود مباشرة بدلاً من معرف الكاميرا
+      videoConstraints,
       { fps: 10, qrbox: {width: 250, height: 150} },
       (decodedText, decodedResult) => {
         // يحدث عند قراءة QR
@@ -142,40 +172,38 @@ async function stopCamera(){
   }
 }
 
+
+// ----------------------------------------------------
+// تهيئة التطبيق (Initialization)
+// ----------------------------------------------------
+
+// Movement buttons
+document.querySelectorAll('.movement').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.movement').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMovement = btn.dataset.movement;
+  });
+});
+
+// Manual send
+document.getElementById('manualSend').addEventListener('click', () => {
+  const id = document.getElementById('manualId').value.trim();
+  if (!id) return showMessage('أدخل رقم صالح');
+  
+  sendRecord(id, currentMovement);
+  document.getElementById('manualId').value = ''; // مسح الحقل بعد الإرسال
+});
+
+
+// ربط وظائف الكاميرا بالأزرار
 document.getElementById('startBtn').addEventListener('click', startCamera);
 document.getElementById('stopBtn').addEventListener('click', stopCamera);
 
-// عند التحميل: عرض سجل المخزن محلياً (إن وُجد)
-(function loadInitial(){
+
+// تحميل السجل الأولي عند فتح التطبيق
+(function loadInitialLogs(){
   const logs = JSON.parse(localStorage.getItem('qr_log_list') || '[]');
-  logs.reverse().forEach(entry => appendLog(entry.employeeID, entry.movement, entry.status || 'تم الإرسال'));
-})();
-
-// وظيفة لحفظ السجل محليًا
-(function patchSendToStore(){
-  const originalSend = sendRecord;
-  window.sendRecord = async function(employeeID, movement){
-    // قم بحفظ البيانات في الذاكرة المحلية قبل الإرسال الفعلي
-    const logs = JSON.parse(localStorage.getItem('qr_log_list') || '[]');
-    const newEntry = {
-        employeeID, 
-        movement, 
-        ts: new Date().toISOString(),
-        status: 'قيد الإرسال'
-    };
-    logs.push(newEntry);
-    localStorage.setItem('qr_log_list', JSON.stringify(logs));
-    
-    // استدعاء دالة الإرسال الأصلية
-    await originalSend(employeeID, movement);
-
-    // تحديث الحالة في الذاكرة المحلية بناءً على نتيجة الإرسال
-    const updatedLogs = JSON.parse(localStorage.getItem('qr_log_list') || '[]');
-    const lastEntry = updatedLogs.find(log => log.ts === newEntry.ts);
-    if (lastEntry) {
-        // تحديث الحالة بناءً على ما إذا كان الإرسال ناجحًا أو فاشلاً (بعد تحديث حالة الرسالة)
-        lastEntry.status = messageEl.classList.contains('error') ? 'فشل الإرسال' : 'تم الإرسال';
-        localStorage.setItem('qr_log_list', JSON.stringify(updatedLogs));
-    }
-  }
+  // يتم تحميل السجلات حسب الترتيب المخزن (الأقدم أولاً) ثم يتم عرضها باستخدام prepend (الأحدث أولاً في الواجهة)
+  logs.forEach(entry => appendLog(entry.employeeID, entry.movement, entry.time, entry.status));
 })();
