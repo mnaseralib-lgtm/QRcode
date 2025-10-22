@@ -20,7 +20,6 @@ const qrCodeElementId = 'reader';
 function showMessage(msg, isError = false) {
   if (!messageEl) return; 
   messageEl.textContent = msg;
-  // إعادة تعيين الفئات (Classes) للحالة الصحيحة
   messageEl.className = 'message';
   if (isError) {
     messageEl.classList.add('error');
@@ -38,7 +37,6 @@ function updateScanCount() {
 // دالة تحديث سجل الواجهة (UI)
 function appendLog(employeeID, movement, time, status) {
   const listItem = document.createElement('li');
-  // استخدام التنسيق المباشر للحالة في الواجهة
   const statusColor = status === 'تم الإرسال' ? 'green' : 'red';
   
   listItem.innerHTML = `
@@ -46,7 +44,6 @@ function appendLog(employeeID, movement, time, status) {
     <span class="log-movement">${movement} (${time})</span>
     <span class="log-status" style="color: ${statusColor};">${status}</span>
   `;
-  // إضافة العنصر الجديد إلى الأعلى
   logList.prepend(listItem);
 }
 
@@ -188,7 +185,7 @@ function loadInitialLogs(){
 }
 
 function initApp() {
-    // 1. **الحصول على مراجع العناصر (الخطوة الحاسمة)**
+    // 1. **الحصول على مراجع العناصر (لضمان الاستجابة)**
     countEl = document.getElementById('count');
     logList = document.getElementById('logList');
     messageEl = document.getElementById('message');
@@ -201,7 +198,7 @@ function initApp() {
     countEl.textContent = scanCount;
     html5QrCode = new Html5Qrcode(qrCodeElementId);
 
-    // 3. ربط أزرار الحركة (Movement buttons) - تم إصلاح منطق ربط الحدث
+    // 3. ربط أزرار الحركة (Movement buttons)
     document.querySelectorAll('.movement').forEach(btn => {
       btn.addEventListener('click', (e) => {
         document.querySelectorAll('.movement').forEach(b=>b.classList.remove('active'));
