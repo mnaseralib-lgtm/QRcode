@@ -1,5 +1,6 @@
 /*
   هام: ضع رابط Web App (Google Apps Script) بعد النشر في GAS_URL
+  ملاحظة: تم تطبيق fix 'DOMContentLoaded' لضمان استجابة التطبيق.
 */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyA2RHTatE-2KG0Nl9q6LetCHJi233n9yNXh7KuHKGmnRyoALqvdH4zRXMXXiCtTWcHGg/exec'; // <<< ضع هنا رابط الويب الخاص بك!
@@ -7,26 +8,18 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyA2RHTatE-2KG0Nl9q6Let
 let currentMovement = 'حضور';
 let scanCount = Number(localStorage.getItem('qr_scan_count') || 0);
 
-// العناصر الثابتة (DOM elements) - يجب أن تكون معرفة قبل الاستخدام
-const countEl = document.getElementById('count');
-const logList = document.getElementById('logList');
-const messageEl = document.getElementById('message');
-const manualIdInput = document.getElementById('manualId');
-const manualSendButton = document.getElementById('manualSend');
-const startButton = document.getElementById('startBtn');
-const stopButton = document.getElementById('stopBtn');
-
-countEl.textContent = scanCount;
-
-// تهيئة ماسح QR
+// تعريف المتغيرات التي ستحمل مراجع عناصر DOM ونسخة الماسح (لتجنب الأعطال المبكرة)
+let countEl, logList, messageEl, manualIdInput, manualSendButton, startButton, stopButton;
+let html5QrCode;
 const qrCodeElementId = 'reader';
-const html5QrCode = new Html5Qrcode(qrCodeElementId);
 
 // ----------------------------------------------------
 // وظائف المساعدة (Helpers)
 // ----------------------------------------------------
 
 function showMessage(msg, isError = false) {
+  // هذه الدالة تعتمد على 'messageEl' الذي يتم تهيئته في initApp
+  if (!messageEl) return; 
   messageEl.textContent = msg;
   messageEl.className = 'message';
   if (isError) {
@@ -52,7 +45,6 @@ function appendLog(employeeID, movement, time, status) {
     <span class="log-movement">${movement} (${time})</span>
     <span class="log-status" style="color: ${statusColor};">${status}</span>
   `;
-  // أضف العنصر الجديد إلى الأعلى
   logList.prepend(listItem);
 }
 
@@ -70,9 +62,8 @@ function addLogEntryToStorage(employeeID, movement, status) {
     };
     logs.push(newEntry);
     
-    // حافظ على آخر 20 إدخال فقط لمنع امتلاء التخزين المحلي
     if (logs.length > 20) {
-        logs.shift(); // إزالة أقدم إدخال
+        logs.shift();
     }
     localStorage.setItem('qr_log_list', JSON.stringify(logs));
     
@@ -87,7 +78,7 @@ async function sendRecord(employeeID, movement) {
   showMessage('جارٍ الإرسال...');
   
   // إيقاف الماسح لمنع القراءة المزدوجة
-  if (html5QrCode.isScanning) {
+  if (html5QrCode && html5QrCode.isScanning) {
      await html5QrCode.pause(); 
   }
   
@@ -130,10 +121,10 @@ async function sendRecord(employeeID, movement) {
 
   // استئناف الماسح بعد فترة وجيزة
   setTimeout(() => {
-    if (html5QrCode.isScanning) {
+    if (html5QrCode && html5QrCode.isScanning) {
         html5QrCode.resume();
     }
-  }, 3000); // 3 ثواني تأخير
+  }, 3000);
 }
 
 
@@ -143,7 +134,6 @@ async function sendRecord(employeeID, movement) {
 
 async function startCamera() {
   try {
-    // تفضيل الكاميرا الخلفية باستخدام facingMode
     const videoConstraints = { facingMode: "environment" }; 
 
     startButton.disabled = true;
@@ -153,23 +143,22 @@ async function startCamera() {
       videoConstraints,
       { fps: 10, qrbox: {width: 250, height: 150} },
       (decodedText, decodedResult) => {
-        // يحدث عند قراءة QR
         sendRecord(decodedText, currentMovement);
       },
       (errorMessage) => {
-        // لا نعرض أخطاء المسح المتكررة 
+        // ...
       }
     );
     showMessage('الكاميرا تعمل — وجّه الكاميرا نحو QR');
   } catch (e) {
     console.error('Camera startup error:', e);
-    showMessage('تعذر تشغيل الكاميرا — افحص الأذونات', true);
+    showMessage('تعذر تشغيل الكاميرا — افحص الأذونات (قد تحتاج HTTPS)', true);
   }
 }
 
 async function stopCamera(){
   try {
-    if (html5QrCode.isScanning) {
+    if (html5QrCode && html5QrCode.isScanning) {
         await html5QrCode.stop();
     }
     startButton.disabled = false;
@@ -187,15 +176,26 @@ async function stopCamera(){
 
 function loadInitialLogs(){
   const logs = JSON.parse(localStorage.getItem('qr_log_list') || '[]');
-  // نعرض السجلات بترتيب زمني معكوس (الأحدث أولاً في الواجهة)
   logs.reverse().forEach(entry => {
-    // نستخدم appendLog لإنشاء العنصر الجديد وعرضه في الواجهة (يتم إضافته إلى الأعلى باستخدام prepend)
     appendLog(entry.employeeID, entry.movement, entry.time, entry.status);
   });
 }
 
 function initApp() {
-    // 1. ربط أزرار الحركة (Movement buttons)
+    // 1. الحصول على مراجع العناصر (الذي كان سبب المشكلة)
+    countEl = document.getElementById('count');
+    logList = document.getElementById('logList');
+    messageEl = document.getElementById('message');
+    manualIdInput = document.getElementById('manualId');
+    manualSendButton = document.getElementById('manualSend');
+    startButton = document.getElementById('startBtn');
+    stopButton = document.getElementById('stopBtn');
+
+    // 2. تهيئة عداد المسح و ماسح QR
+    countEl.textContent = scanCount;
+    html5QrCode = new Html5Qrcode(qrCodeElementId);
+
+    // 3. ربط أزرار الحركة (Movement buttons)
     document.querySelectorAll('.movement').forEach(btn => {
       btn.addEventListener('click', (e) => {
         document.querySelectorAll('.movement').forEach(b=>b.classList.remove('active'));
@@ -204,22 +204,23 @@ function initApp() {
       });
     });
 
-    // 2. ربط الإدخال اليدوي (Manual send)
+    // 4. ربط الإدخال اليدوي (Manual send)
     manualSendButton.addEventListener('click', () => {
       const id = manualIdInput.value.trim();
       if (!id) return showMessage('أدخل رقم صالح', true);
       
       sendRecord(id, currentMovement);
-      manualIdInput.value = ''; // مسح الحقل بعد الإرسال
+      manualIdInput.value = '';
     });
 
-    // 3. ربط وظائف الكاميرا بالأزرار
+    // 5. ربط وظائف الكاميرا بالأزرار
     startButton.addEventListener('click', startCamera);
     stopButton.addEventListener('click', stopCamera);
     
-    // 4. تحميل السجل الأولي
+    // 6. تحميل السجل الأولي
     loadInitialLogs();
 }
 
-// تشغيل دالة التهيئة مباشرة لأن السكربت موجود في نهاية ملف index.html
-initApp();
+// *** الحل النهائي لعدم الاستجابة ***
+// تشغيل دالة التهيئة فقط بعد أن يجهز هيكل DOM بالكامل.
+document.addEventListener('DOMContentLoaded', initApp);
