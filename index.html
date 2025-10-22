@@ -1,45 +1,20 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>نظام الحضور والانصراف (QR)</title>
-    <!-- تحميل Tailwind CSS للستايلات السريعة والمرنة -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- تعريف الخط الرئيسي وبعض الستايلات الأساسية -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #f3f4f6;
-        }
-        #reader {
-            width: 100%;
-            max-width: 400px;
-            margin: 0 auto;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        .container {
-            padding: 20px;
-        }
-        .btn-primary {
-            background-color: #10b981;
-            transition: background-color 0.3s;
-        }
-        .btn-primary:hover {
-            background-color: #059669;
-        }
-        .btn-secondary {
-            background-color: #3b82f6;
-            transition: background-color 0.3s;
-        }
-        .btn-secondary:hover {
-            background-color: #2563eb;
-        }
+        body { font-family: 'Cairo', sans-serif; background-color: #f3f4f6; }
+        #reader { width:100%; max-width:400px; margin:0 auto; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+        .container { padding:20px; }
+        .btn-primary { background-color: #10b981; transition: background-color 0.3s; }
+        .btn-primary:hover { background-color: #059669; }
+        .btn-secondary { background-color: #3b82f6; transition: background-color 0.3s; }
+        .btn-secondary:hover { background-color: #2563eb; }
     </style>
-    <!-- مكتبة html5-qrcode لمسح QR Code -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body class="min-h-screen">
@@ -66,30 +41,27 @@
         <p class="mt-4 text-xs text-gray-500">للتعديل: يمكنك تغيير بيانات الدخول في قسم الكود (JS).</p>
     </div>
 
-    <!-- المحتوى الرئيسي للتطبيق (مخفي حتى تسجيل الدخول بنجاح) -->
+    <!-- المحتوى الرئيسي للتطبيق -->
     <div id="main-app-content" class="container mx-auto max-w-4xl hidden">
         <h1 class="text-4xl font-bold text-center text-gray-800 my-6">نظام حضور وانصراف الموظفين</h1>
         <p id="user-info" class="text-center text-sm text-gray-500 mb-6"></p>
 
-        <!-- منطقة ماسح QR Code -->
+        <!-- ماسح QR -->
         <div class="p-6 bg-white rounded-xl shadow-lg mb-8">
             <h2 class="text-2xl font-semibold text-gray-700 mb-4 text-center">1. المسح التلقائي عبر الكاميرا</h2>
             <div id="reader-container" class="flex justify-center">
-                <!-- سيتم تحميل الكاميرا هنا -->
                 <div id="reader"></div>
             </div>
-            
             <div id="scan-status" class="mt-4 text-center text-lg font-medium text-blue-600"></div>
             <div id="last-scan-result" class="mt-2 p-3 bg-green-100 text-green-800 rounded-lg hidden"></div>
 
-            <!-- عداد حركات QR Code -->
             <div class="mt-4 p-3 bg-gray-100 rounded-lg text-center shadow-inner">
                 <span class="text-md font-medium text-gray-600">عدد حركات المسح اليوم (QR): </span>
                 <span id="qr-count-display" class="text-2xl font-extrabold text-green-600">0</span>
             </div>
         </div>
 
-        <!-- منطقة الإدخال اليدوي -->
+        <!-- الادخال اليدوي -->
         <div class="p-6 bg-white rounded-xl shadow-lg mb-8">
             <h2 class="text-2xl font-semibold text-gray-700 mb-4 text-center">2. الإدخال اليدوي</h2>
             <form id="manual-entry-form" class="space-y-4">
@@ -112,7 +84,7 @@
             <div id="manual-entry-message" class="mt-4 text-center text-lg font-medium text-red-600 hidden"></div>
         </div>
 
-        <!-- سجل الحركات الأخيرة + زر التصدير -->
+        <!-- سجل الحركات -->
         <div class="p-6 bg-white rounded-xl shadow-lg mb-8">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-semibold text-gray-700">3. سجل الحركات</h2>
@@ -120,420 +92,309 @@
                     تصدير إلى Excel (CSV)
                 </button>
             </div>
-            
             <div id="records-list" class="space-y-3">
                 <p class="text-center text-gray-500" id="loading-records"></p>
             </div>
         </div>
     </div>
 
-    <!-- متطلبات Firebase SDKs والمنطق -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script>
+    // ------------ إعدادات ------------
+    const CREDENTIALS = { username: "admin", password: "123" };
+    // ضع هنا رابط Web App الخاص بك (Apps Script)
+    const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzGJy8WInLBIJGuqa90bDMWuK9SIHOJ4IH5No8EcvdPWJQsmUKfQqrPNe5aFB7pCwE-sA/exec';
 
-        // ** 1. اعتمادات الدخول القابلة للتعديل (اسم المستخدم وكلمة المرور) **
-        const CREDENTIALS = {
-            username: "admin", // اسم المستخدم الافتراضي
-            password: "123"    // كلمة المرور الافتراضية
+    // ------------ حالة محلية (عرض / تصدير) ------------
+    const LS_ALL_RECORDS_KEY = 'attendance_all_records_v1';
+    let allRecords = loadAllRecordsFromStorage();
+
+    const movementTypeMap = {
+        "Clock In": "دخول",
+        "Clock Out": "انصراف",
+        "Evening Clock Out": "انصراف مسائي"
+    };
+
+    // ------------ helpers التخزين ------------
+    function saveAllRecordsToStorage() {
+        try { localStorage.setItem(LS_ALL_RECORDS_KEY, JSON.stringify(allRecords)); } catch (e) { console.warn(e); }
+    }
+    function loadAllRecordsFromStorage() {
+        try {
+            const s = localStorage.getItem(LS_ALL_RECORDS_KEY);
+            return s ? JSON.parse(s) : [];
+        } catch (e) { console.warn(e); return []; }
+    }
+
+    // ------------ دوال إنشاء السجل وإرساله فورًا ------------
+    function createLocalRecord(employeeId, type, source = 'QR') {
+        return {
+            id: `local-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+            employee_id: String(employeeId).trim(),
+            movement_type: type,
+            timestamp: new Date().toISOString(),
+            source: source
         };
-       
-        // ----------------------------------------------------
+    }
 
-        // ** المتغيرات العامة التي يوفرها Canvas **
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    // إرسال سجل واحد فورًا إلى Google Sheet (records_batch كـ JSON array)
+    async function sendRecordImmediately(record) {
+        // حفظ محليًا للعرض
+        allRecords.unshift(record);
+        saveAllRecordsToStorage();
+        renderRecords(allRecords.slice(0, 20));
+        updateQRCountFromAllRecords();
+        document.getElementById('export-excel-btn').disabled = allRecords.length === 0;
 
-        let db, auth, userId = null;
-        let html5QrCode = null;
-        let allRecords = []; // لتخزين جميع السجلات لعملية التصدير
+        // تجهيز payload متوافق مع Apps Script (records_batch)
+        const params = new URLSearchParams();
+        params.append('records_batch', JSON.stringify([{
+            id: record.id,
+            employee_id: record.employee_id,
+            movement_type: record.movement_type,
+            timestamp: record.timestamp,
+            source: record.source
+        }]));
 
-        // تعيين مستوى التسجيل للمساعدة في تصحيح الأخطاء
-        setLogLevel('Debug');
+        // محاولة إرسال باستخدام fetch (no-cors)، ثم fallback إلى sendBeacon إذا متوفر
+        try {
+            await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors', // يضمن إرسال الطلب غالبًا مع Apps Script Web App
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            });
+            console.log('تم إرسال السجل (no-cors) إلى Google Sheet:', record);
+        } catch (e) {
+            console.warn('fetch(no-cors) فشل، محاولة sendBeacon إذا كانت متاحة:', e);
+            try {
+                if (navigator.sendBeacon) {
+                    const blob = new Blob([params.toString()], { type: 'application/x-www-form-urlencoded' });
+                    const ok = navigator.sendBeacon(GOOGLE_SHEET_WEB_APP_URL, blob);
+                    console.log('sendBeacon result:', ok);
+                }
+            } catch (be) {
+                console.warn('sendBeacon فشل:', be);
+            }
+        }
+    }
 
-        // خريطة لترجمة نوع الحركة للعرض
-        const movementTypeMap = {
-            "Clock In": "دخول",
-            "Clock Out": "انصراف",
-            "Evening Clock Out": "انصراف مسائي"
+    // ------------ عرض السجلات في الواجهة ------------
+    function renderRecords(records) {
+        const recordsList = document.getElementById('records-list');
+        recordsList.innerHTML = '';
+
+        if (!records || records.length === 0) {
+            recordsList.innerHTML = '<p class="text-center text-gray-500">لا توجد سجلات حضور مسجلة بعد.</p>';
+            return;
+        }
+
+        records.forEach(record => {
+            const ts = record.timestamp ? new Date(record.timestamp) : new Date();
+            const formattedTime = ts.toLocaleString('ar-EG', {
+                year: 'numeric', month: 'numeric', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+            });
+
+            const movementText = movementTypeMap[record.movement_type] || record.movement_type || '';
+            const sourceText = (record.source === 'QR' || record.source === 'qr') ? 'مسح QR' : 'يدوي';
+
+            const bgColor = (record.movement_type === 'Clock In') ? 'bg-blue-50' :
+                            ((record.movement_type === 'Clock Out') ? 'bg-yellow-50' : 'bg-red-50');
+            const borderColor = (record.movement_type === 'Clock In') ? 'border-blue-300' :
+                            ((record.movement_type === 'Clock Out') ? 'border-yellow-300' : 'border-red-300');
+
+            const recordItem = `
+                <div class="p-4 border-r-4 ${borderColor} ${bgColor} rounded-lg flex justify-between items-center shadow-sm">
+                    <div>
+                        <p class="text-lg font-bold text-gray-800">${movementText}</p>
+                        <p class="text-sm text-gray-600">رمز الموظف: <span class="font-semibold">${record.employee_id}</span></p>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm text-gray-500">${formattedTime}</p>
+                        <span class="text-xs font-medium ${record.source === 'QR' ? 'text-green-600' : 'text-purple-600'}">(${sourceText})</span>
+                    </div>
+                </div>
+            `;
+            recordsList.innerHTML += recordItem;
+        });
+    }
+
+    // ------------ تصدير CSV ------------
+    function exportToCSV(data) {
+        const rows = (data || []).slice().sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+        const headers = ["معرف السجل", "رمز الموظف", "نوع الحركة", "الوقت والتاريخ", "المصدر"];
+        let csv = headers.join(',') + '\n';
+
+        const escape = (value) => {
+            if (value === null || value === undefined) return '';
+            let str = String(value);
+            if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
         };
-        
-        // ----------------------------------------------------------------------------------
-        // منطق الدخول
-        // ----------------------------------------------------------------------------------
 
-        function handleLogin(event) {
-            event.preventDefault();
-            
-            const usernameInput = document.getElementById('username').value;
-            const passwordInput = document.getElementById('password').value;
-            const loginMessage = document.getElementById('login-message');
+        rows.forEach(record => {
+            csv += [
+                escape(record.id),
+                escape(record.employee_id),
+                escape(movementTypeMap[record.movement_type] || record.movement_type || ''),
+                escape(new Date(record.timestamp).toLocaleString('en-US', { hour12: false })),
+                escape(record.source)
+            ].join(',') + '\n';
+        });
 
-            if (usernameInput === CREDENTIALS.username && passwordInput === CREDENTIALS.password) {
-                // تسجيل الدخول بنجاح
-                document.getElementById('login-container').classList.add('hidden');
-                document.getElementById('main-app-content').classList.remove('hidden');
-                loginMessage.classList.add('hidden');
-                
-                // بدء تشغيل خدمات التطبيق بعد تسجيل الدخول
-                setupFirebase();
-                setupScanner();
+        const csvFile = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(csvFile);
+        link.download = `Attendance_Records_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 
-            } else {
-                // فشل تسجيل الدخول
-                loginMessage.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
-                loginMessage.classList.remove('hidden');
-                // مسح كلمة المرور من حقل الإدخال
-                document.getElementById('password').value = '';
-            }
-        }
+    document.getElementById('export-excel-btn').addEventListener('click', () => {
+        if (allRecords.length > 0) exportToCSV(allRecords);
+    });
 
-        // ربط نموذج تسجيل الدخول
-        document.getElementById('login-form').addEventListener('submit', handleLogin);
+    // ------------ إدخال يدوي: إرسال مباشر ------------
+    document.getElementById('manual-entry-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+        const employeeId = document.getElementById('employee-id-manual').value;
+        const type = document.getElementById('movement-type-manual').value;
+        const msgEl = document.getElementById('manual-entry-message');
+        msgEl.textContent = 'جاري التسجيل...';
+        msgEl.classList.remove('hidden','bg-green-100','text-green-800');
+        msgEl.classList.add('text-red-600');
 
+        const record = createLocalRecord(employeeId, type, 'Manual');
+        sendRecordImmediately(record);
 
-        // ----------------------------------------------------------------------------------
-        // منطق التطبيق الرئيسي
-        // ----------------------------------------------------------------------------------
+        msgEl.textContent = `✅ تم تسجيل الحركة يدوياً: ${movementTypeMap[type] || type}`;
+        msgEl.classList.add('bg-green-100','text-green-800');
+        setTimeout(()=> msgEl.classList.add('hidden'), 3500);
+        this.reset();
+    });
 
-        // 1. إعداد Firebase والمصادقة
-        async function setupFirebase() {
-            document.getElementById('scan-status').textContent = 'انتظر... تحميل الكاميرا.';
-            document.getElementById('loading-records').textContent = 'جاري الاتصال بقاعدة البيانات...';
+    // ------------ مسح QR وإرسال مباشر ------------
+    let html5QrCode = null;
+    function setupScanner() {
+        const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+            html5QrCode.stop().then(() => {
+                const employeeId = decodedText;
+                const statusElement = document.getElementById('scan-status');
+                const type = 'Clock In';
 
-            try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+                statusElement.textContent = `تم مسح الرمز: ${employeeId}. جارٍ تسجيل...`;
+                statusElement.classList.remove('text-blue-600');
+                statusElement.classList.add('text-yellow-600');
 
-                // المصادقة باستخدام الرمز المخصص أو كمستخدم مجهول
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                const record = createLocalRecord(employeeId, type, 'QR');
+                sendRecordImmediately(record);
 
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        document.getElementById('user-info').textContent = `معرف المستخدم: ${userId}`;
-                        console.log("Firebase Authenticated. User ID:", userId);
-                        loadRecords(); // تحميل السجلات بمجرد المصادقة
-                    } else {
-                        console.error("Authentication failed.");
-                    }
-                });
+                const statusEl2 = document.getElementById('last-scan-result');
+                statusEl2.textContent = `✅ تم التسجيل بنجاح! نوع الحركة: ${movementTypeMap[type] || type} | رمز الموظف: ${employeeId}`;
+                statusEl2.classList.remove('hidden','bg-red-100','text-red-800');
+                statusEl2.classList.add('bg-green-100','text-green-800');
+                setTimeout(()=> statusEl2.classList.add('hidden'), 3000);
 
-            } catch (error) {
-                console.error("خطأ في إعداد Firebase:", error);
-                document.getElementById('scan-status').textContent = `خطأ في الاتصال بالخدمة: ${error.message}`;
-            }
-        }
+                setTimeout(() => startScanner(), 2000);
+            }).catch(err => {
+                console.error("فشل إيقاف الماسح:", err);
+                startScanner();
+            });
+        };
 
-        // 2. إرسال البيانات إلى Google Sheet (تم التعديل لإرسال بيانات form-urlencoded في الجسم)
-        async function sendToGoogleSheet(record) {
-            // ** رابط الـ Web App الخاص بك **
-            const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzLFUmPAuh50sE1PzfEzCuAiU66yi2SaMNaSsRS2e3POO8D1_9AnZJUq4Rg3hMWKPDLMw/exec';
+        const qrCodeErrorCallback = (errorMessage) => {
+            // ignore frequent errors
+        };
 
-            const params = new URLSearchParams();
-            params.append('employee_id', record.employeeId);
-            params.append('movement_type', record.type);
-            params.append('timestamp', new Date().toLocaleString()); 
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        html5QrCode = new Html5Qrcode("reader");
 
-            try {
-                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', 
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded' 
-                    },
-                    body: params.toString() 
-                });
-
-                console.log("تم إرسال البيانات إلى Google Sheet بنجاح (عبر body/e.parameter).");
-            } catch (error) {
-                console.warn("خطأ متوقع في إرسال Google Sheet (يجب التحقق من الشيت):", error);
-            }
-        }
-
-        // 3. حفظ سجل الحضور في Firestore وإرساله إلى Google Sheet
-        async function saveAttendance(employeeId, type, source = 'QR') {
-            if (!userId) {
-                document.getElementById('manual-entry-message').textContent = 'الرجاء الانتظار، جاري التحقق من المصادقة.';
-                return;
-            }
-
-            const collectionPath = `/artifacts/${appId}/public/data/attendance_records`;
-            const recordsCollection = collection(db, collectionPath);
-            const record = {
-                employeeId: employeeId.trim(),
-                type: type, 
-                timestamp: serverTimestamp(), 
-                source: source, 
-                userId: userId,
-            };
-
-            try {
-                const docRef = await addDoc(recordsCollection, record);
-                const finalRecord = { ...record, timestamp: new Date().toISOString(), recordId: docRef.id };
-                console.log("تم حفظ السجل في Firestore بنجاح:", finalRecord);
-
-                await sendToGoogleSheet(finalRecord); // إرسال إلى Google Sheet
-
-                const statusElement = source === 'QR' ? document.getElementById('last-scan-result') : document.getElementById('manual-entry-message');
-                const movementText = movementTypeMap[type] || type;
-
-                statusElement.textContent = `✅ تم التسجيل بنجاح! نوع الحركة: ${movementText} | رمز الموظف: ${employeeId}`;
-                statusElement.classList.remove('hidden', 'bg-red-100', 'text-red-800');
-                statusElement.classList.add('bg-green-100', 'text-green-800');
-
-                // تحديث العداد الفوري
-                if (source === 'QR') {
-                    let currentCount = parseInt(document.getElementById('qr-count-display').textContent) || 0;
-                    document.getElementById('qr-count-display').textContent = (currentCount + 1).toString();
-                }
-
-                setTimeout(() => {
-                    statusElement.classList.add('hidden');
-                }, 5000);
-
-            } catch (e) {
-                console.error("خطأ في إضافة السجل:", e);
-                const statusElement = source === 'QR' ? document.getElementById('scan-status') : document.getElementById('manual-entry-message');
-                statusElement.textContent = `❌ فشل التسجيل: ${e.message}`;
-                statusElement.classList.remove('hidden', 'text-blue-600', 'bg-green-100', 'text-green-800');
-                statusElement.classList.add('bg-red-100', 'text-red-800');
-            }
-        }
-
-        // 4. إعداد ماسح QR Code (لم يتغير)
-        function setupScanner() {
-            const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-                html5QrCode.stop().then((ignore) => {
-                    const employeeId = decodedText;
-                    const statusElement = document.getElementById('scan-status');
-                    const type = 'Clock In'; 
-
-                    statusElement.textContent = `تم مسح الرمز: ${employeeId}. جارٍ تسجيل الدخول...`;
-                    statusElement.classList.remove('text-blue-600');
-                    statusElement.classList.add('text-yellow-600');
-
-                    saveAttendance(employeeId, type, 'QR');
-
-                    setTimeout(() => {
-                        startScanner();
-                    }, 3000);
-                }).catch((err) => {
-                    console.error("فشل إيقاف html5QrCode:", err);
-                    startScanner(); 
-                });
-            };
-
-            const qrCodeErrorCallback = (errorMessage) => {
-                // تجاهل رسائل الخطأ المستمرة
-            };
-
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-            const onScanStart = () => {
-                document.getElementById('scan-status').textContent = 'جاهز للمسح. الرجاء توجيه الكاميرا إلى QR Code.';
-                document.getElementById('scan-status').classList.add('text-blue-600');
-                document.getElementById('last-scan-result').classList.add('hidden');
-            };
-
-            html5QrCode = new Html5Qrcode("reader");
-            
-            function startScanner() {
-                Html5Qrcode.getCameras().then(devices => {
-                    if (devices && devices.length) {
-                        const rearCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear'));
-                        const cameraId = rearCamera ? rearCamera.id : devices[0].id;
-                        
-                        html5QrCode.start(
-                            cameraId,
-                            config,
-                            qrCodeSuccessCallback,
-                            qrCodeErrorCallback
-                        ).then(onScanStart).catch(err => {
-                            console.error("فشل بدء تشغيل الكاميرا:", err);
+        function startScanner() {
+            Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length) {
+                    const rear = devices.find(d => (d.label||'').toLowerCase().includes('back') || (d.label||'').toLowerCase().includes('rear')) || devices[0];
+                    const cameraId = rear.id;
+                    html5QrCode.start(cameraId, config, qrCodeSuccessCallback, qrCodeErrorCallback)
+                        .then(() => {
+                            document.getElementById('scan-status').textContent = 'جاهز للمسح. الرجاء توجيه الكاميرا إلى QR Code.';
+                            document.getElementById('scan-status').classList.add('text-blue-600');
+                        })
+                        .catch(err => {
+                            console.error("فشل تشغيل الكاميرا:", err);
                             document.getElementById('scan-status').textContent = 'خطأ: لا يمكن الوصول إلى الكاميرا. تأكد من الأذونات.';
                         });
-                    } else {
-                        document.getElementById('scan-status').textContent = 'خطأ: لم يتم العثور على كاميرا.';
-                    }
-                }).catch(err => {
-                    console.error("فشل في الحصول على الكاميرات:", err);
-                    document.getElementById('scan-status').textContent = 'خطأ: فشل في الحصول على قائمة الكاميرات.';
-                });
-            }
-
-            startScanner();
-        }
-
-        // 5. تحميل وعرض السجلات من Firestore
-        function loadRecords() {
-            if (!db) return; 
-
-            const collectionPath = `/artifacts/${appId}/public/data/attendance_records`;
-            const recordsCollection = collection(db, collectionPath);
-
-            const q = query(recordsCollection);
-
-            onSnapshot(q, (snapshot) => {
-                const records = [];
-                let qrCountToday = 0;
-                const today = new Date().toDateString();
-
-                snapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    records.push(data);
-                    
-                    // حساب عداد QR اليوم
-                    if (data.source === 'QR' && data.timestamp) {
-                        const recordDate = new Date(data.timestamp.toMillis()).toDateString();
-                        if (recordDate === today) {
-                            qrCountToday++;
-                        }
-                    }
-                });
-
-                // تخزين جميع السجلات لعملية التصدير
-                allRecords = records;
-                document.getElementById('export-excel-btn').disabled = records.length === 0;
-
-                // تحديث العداد
-                document.getElementById('qr-count-display').textContent = qrCountToday.toString();
-
-                // فرز السجلات (الأحدث أولاً)
-                records.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-
-                renderRecords(records.slice(0, 20)); // عرض آخر 20 سجل
-            }, (error) => {
-                console.error("خطأ في جلب السجلات:", error);
-                document.getElementById('loading-records').textContent = 'خطأ في تحميل السجلات.';
+                } else {
+                    document.getElementById('scan-status').textContent = 'خطأ: لم يتم العثور على كاميرا.';
+                }
+            }).catch(err => {
+                console.error("فشل في الحصول على الكاميرات:", err);
+                document.getElementById('scan-status').textContent = 'خطأ: فشل في الحصول على قائمة الكاميرات.';
             });
         }
 
-        // 6. عرض السجلات في واجهة المستخدم (لم يتغير)
-        function renderRecords(records) {
-            const recordsList = document.getElementById('records-list');
-            recordsList.innerHTML = ''; 
+        startScanner();
+    }
 
-            if (records.length === 0) {
-                recordsList.innerHTML = '<p class="text-center text-gray-500">لا توجد سجلات حضور مسجلة بعد.</p>';
-                return;
-            }
+    // ------------ عداد QR من السجلات المحلية ------------
+    function updateQRCountFromAllRecords() {
+        try {
+            const today = new Date().toDateString();
+            const count = (allRecords || []).filter(r => r.source === 'QR' && new Date(r.timestamp).toDateString() === today).length;
+            document.getElementById('qr-count-display').textContent = count.toString();
+        } catch (e) { console.warn(e); }
+    }
 
-            records.forEach(record => {
-                const timestamp = record.timestamp ? new Date(record.timestamp.toMillis()) : new Date();
-                const formattedTime = timestamp.toLocaleString('ar-EG', {
-                    year: 'numeric', month: 'numeric', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit', second: '2-digit',
-                    hour12: true
-                });
+    // ------------ تحميل/تهيئة الواجهة ------------
+    window.onload = function() {
+        document.getElementById('login-container').classList.remove('hidden');
+        document.getElementById('main-app-content').classList.add('hidden');
+        document.getElementById('export-excel-btn').disabled = allRecords.length === 0;
+        document.getElementById('loading-records').textContent = '';
+        updateQRCountFromAllRecords();
+    };
 
-                const movementText = movementTypeMap[record.type] || record.type;
-                const sourceText = record.source === 'QR' ? 'مسح QR' : 'يدوي';
+    // login handler
+    function handleLogin(event) {
+        event.preventDefault();
+        const usernameInput = document.getElementById('username').value;
+        const passwordInput = document.getElementById('password').value;
+        const loginMessage = document.getElementById('login-message');
 
-                const bgColor = record.type === 'Clock In' ? 'bg-blue-50' : (record.type === 'Clock Out' ? 'bg-yellow-50' : 'bg-red-50');
-                const borderColor = record.type === 'Clock In' ? 'border-blue-300' : (record.type === 'Clock Out' ? 'border-yellow-300' : 'border-red-300');
+        if (usernameInput === CREDENTIALS.username && passwordInput === CREDENTIALS.password) {
+            document.getElementById('login-container').classList.add('hidden');
+            document.getElementById('main-app-content').classList.remove('hidden');
+            loginMessage.classList.add('hidden');
 
-                const recordItem = `
-                    <div class="p-4 border-r-4 ${borderColor} ${bgColor} rounded-lg flex justify-between items-center shadow-sm">
-                        <div>
-                            <p class="text-lg font-bold text-gray-800">${movementText}</p>
-                            <p class="text-sm text-gray-600">رمز الموظف: <span class="font-semibold">${record.employeeId}</span></p>
-                        </div>
-                        <div class="text-left">
-                            <p class="text-sm text-gray-500">${formattedTime}</p>
-                            <span class="text-xs font-medium ${record.source === 'QR' ? 'text-green-600' : 'text-purple-600'}">(${sourceText})</span>
-                        </div>
-                    </div>
-                `;
-                recordsList.innerHTML += recordItem;
-            });
+            setupScanner();
+            renderRecords(allRecords.slice(0, 20));
+            document.getElementById('export-excel-btn').disabled = allRecords.length === 0;
+        } else {
+            loginMessage.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
+            loginMessage.classList.remove('hidden');
+            document.getElementById('password').value = '';
         }
+    }
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
 
-        // 7. دالة التصدير إلى CSV (لم تتغير)
-        function exportToCSV(data) {
-            // فرز البيانات الأحدث أولاً في ملف التصدير أيضاً
-            data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-
-            const headers = ["معرف السجل", "رمز الموظف", "نوع الحركة", "الوقت والتاريخ", "المصدر", "معرف النظام (UserId)"];
-            
-            // إنشاء صف الرؤوس
-            let csv = headers.join(',') + '\n';
-
-            // إضافة صفوف البيانات
-            data.forEach(record => {
-                const timestamp = record.timestamp ? new Date(record.timestamp.toMillis()).toLocaleString('en-US', { hour12: false }) : 'N/A';
-                
-                // التأكد من أن القيم لا تحتوي على فواصل أو علامات اقتباس غير مرغوبة
-                const escape = (value) => {
-                    if (value === null || value === undefined) return '';
-                    let str = String(value);
-                    if (str.includes(',') || str.includes('\n') || str.includes('"')) {
-                        return `"${str.replace(/"/g, '""')}"`;
-                    }
-                    return str;
-                };
-
-                const movementText = movementTypeMap[record.type] || record.type;
-                
-                csv += [
-                    escape(record.id),
-                    escape(record.employeeId),
-                    escape(movementText),
-                    escape(timestamp),
-                    escape(record.source),
-                    escape(record.userId)
-                ].join(',') + '\n';
-            });
-
-            // إنشاء Blob وتنزيله كملف CSV
-            const csvFile = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' }); // \uFEFF for UTF-8 support (Arabic)
-
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(csvFile);
-            link.download = `Attendance_Records_${new Date().toISOString().slice(0, 10)}.csv`;
-            
-            // إرسال النقر لتنزيل الملف
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // 8. معالجة إرسال نموذج الإدخال اليدوي (لم يتغير)
-        document.getElementById('manual-entry-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const employeeId = document.getElementById('employee-id-manual').value;
-            const type = document.getElementById('movement-type-manual').value;
-
-            document.getElementById('manual-entry-message').textContent = 'جاري التسجيل...';
-            document.getElementById('manual-entry-message').classList.remove('hidden', 'bg-green-100', 'text-green-800');
-            document.getElementById('manual-entry-message').classList.add('text-red-600');
-
-            saveAttendance(employeeId, type, 'Manual');
-            this.reset();
-        });
-
-        // 9. ربط زر التصدير
-        document.getElementById('export-excel-btn').addEventListener('click', () => {
-            if (allRecords.length > 0) {
-                exportToCSV(allRecords);
-            }
-        });
-
-        // 10. وظيفة التشغيل الأولية (لا تبدأ Firebase أو Scanner هنا)
-        window.onload = function() {
-            // عند التحميل، نعرض فقط شاشة تسجيل الدخول
-            document.getElementById('login-container').classList.remove('hidden');
-            document.getElementById('main-app-content').classList.add('hidden');
-            document.getElementById('export-excel-btn').disabled = true; // تعطيل التصدير قبل الدخول
+    // ------------ utility: createLocalRecord (used earlier) ------------
+    function createLocalRecord(employeeId, type, source = 'QR') {
+        return {
+            id: `local-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+            employee_id: String(employeeId || '').trim(),
+            movement_type: type,
+            timestamp: new Date().toISOString(),
+            source: source
         };
+    }
 
+    // ------------ قبل إغلاق الصفحة: نحاول إرسال أي سجل عبر sendBeacon (حفظ إضافي) ------------
+    window.addEventListener('beforeunload', function () {
+        // نرسل آخر سجل محلي غير مُستلم إن أردنا — لكن لأننا نرسل فورًا، عادة لا توجد دفعات.
+        // نترك هذا كاحتياط إذا رغبت لاحقًا بتعديل.
+    });
     </script>
 </body>
 </html>
