@@ -18,10 +18,15 @@ header h1{margin:0;font-size:20px}
 .scanner{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);text-align:center}
 .scanner-controls{display:flex;gap:8px;justify-content:center;margin-top:8px}
 .scanner-controls button{padding:10px 14px;border-radius:8px;border:0;background:#111;color:#fff;cursor:pointer}
-#message{margin-top:10px;color:var(--muted)}
-.log{margin-top:12px;background:var(--card);padding:10px;border-radius:10px}
-.log h2{margin:0 0 8px 0;font-size:16px}
-#logList{list-style:none;padding:0;margin:0;max-height:160px;overflow:auto}
-#logList li{padding:8px;border-bottom:1px solid #f1f3f5;font-size:14px}
-footer{margin-top:12px;text-align:center;color:var(--muted);font-size:12px}
-@media (max-width:520px){.movement-buttons{flex-direction:column}.manual-entry{flex-direction:column;align-items:stretch}}
+.scanner-controls button#startBtn{background:var(--accent)}
+.scanner-controls button:disabled{opacity:0.6;cursor:not-allowed}
+.message{padding:8px 12px;margin-top:12px;border-radius:8px;font-size:14px;color:#111;text-align:center}
+.message.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
+.message.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+.log{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);margin-top:12px}
+.log h2{margin:0 0 10px;font-size:16px;color:var(--muted)}
+#logList{list-style:none;padding:0;margin:0}
+#logList li{padding:8px 0;border-bottom:1px solid #eee;display:flex;justify-content:space-between;font-size:14px}
+#logList li:last-child{border-bottom:none}
+.log-id{font-weight:600}
+.log-movement{color:var(--accent)}
