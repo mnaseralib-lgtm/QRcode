@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>تسجيل الحضور - QR</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- html5-qrcode library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>تسجيل الحضور-QR</h1>
+      <p class="subtitle">Attend Tracker</p>
+    </header>
+
+    <main>
+      <section class="controls">
+        <label class="select-label">نوع الحركة:</label>
+        <div class="movement-buttons">
+          <button class="movement active" data-movement="حضور">حضور</button>
+          <button class="movement" data-movement="انصراف">انصراف</button>
+          <button class="movement" data-movement="انصراف مسائي">انصراف مسائي</button>
+        </div>
+
+        <div class="manual-entry">
+          <label for="manualId">ادخال يدوي للرقم:</label>
+          <input id="manualId" placeholder="أدخل رقم الموظف أو الكود" autocomplete="off" />
+          <button id="manualSend">إرسال يدوي</button>
+        </div>
+
+        <div class="counter">
+          <div>المسحات المسجلة:</div>
+          <div id="count">0</div>
+        </div>
+      </section>
+
+      <section class="scanner">
+        <div id="reader" style="width:100%; max-width:480px; margin: 0 auto;"></div>
+        <div class="scanner-controls">
+          <button id="startBtn">تشغيل الكاميرا</button>
+          <button id="stopBtn" disabled>إيقاف الكاميرا</button>
+        </div>
+        <div id="message" class="message"></div>
+      </section>
+
+      <section class="log">
+        <h2>آخر العمليات</h2>
+        <ul id="logList"></ul>
+      </section>
+    </main>
+
+    <footer>
+      <small>HR Department </small>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
