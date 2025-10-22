@@ -30,3 +30,4 @@ header h1{margin:0;font-size:20px}
 #logList li:last-child{border-bottom:none}
 .log-id{font-weight:600}
 .log-movement{color:var(--accent)}
+.log-status { font-weight: 500; }
