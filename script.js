@@ -7,7 +7,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyA2RHTatE-2KG0Nl9q6Let
 let currentMovement = 'حضور';
 let scanCount = Number(localStorage.getItem('qr_scan_count') || 0);
 
-// العناصر الثابتة (DOM elements)
+// العناصر الثابتة (DOM elements) - يجب أن تكون معرفة قبل الاستخدام
 const countEl = document.getElementById('count');
 const logList = document.getElementById('logList');
 const messageEl = document.getElementById('message');
@@ -111,7 +111,6 @@ async function sendRecord(employeeID, movement) {
       message = `نجاح: ${employeeID} - ${movement}`;
       updateScanCount(); 
     } else {
-      // قراءة نص الاستجابة لمزيد من التفاصيل (في حالة خطأ GAS)
       const errorText = await response.text();
       console.error('GAS Error Response:', errorText);
       throw new Error(`خطأ في استجابة الشبكة: ${response.status}`);
@@ -186,6 +185,15 @@ async function stopCamera(){
 // تهيئة التطبيق وربط الأحداث (Initialization)
 // ----------------------------------------------------
 
+function loadInitialLogs(){
+  const logs = JSON.parse(localStorage.getItem('qr_log_list') || '[]');
+  // نعرض السجلات بترتيب زمني معكوس (الأحدث أولاً في الواجهة)
+  logs.reverse().forEach(entry => {
+    // نستخدم appendLog لإنشاء العنصر الجديد وعرضه في الواجهة (يتم إضافته إلى الأعلى باستخدام prepend)
+    appendLog(entry.employeeID, entry.movement, entry.time, entry.status);
+  });
+}
+
 function initApp() {
     // 1. ربط أزرار الحركة (Movement buttons)
     document.querySelectorAll('.movement').forEach(btn => {
@@ -209,18 +217,9 @@ function initApp() {
     startButton.addEventListener('click', startCamera);
     stopButton.addEventListener('click', stopCamera);
     
-    // 4. تحميل السجل الأولي عند فتح التطبيق
+    // 4. تحميل السجل الأولي
     loadInitialLogs();
 }
 
-function loadInitialLogs(){
-  const logs = JSON.parse(localStorage.getItem('qr_log_list') || '[]');
-  // نعرض السجلات بترتيب زمني معكوس (الأحدث أولاً في الواجهة)
-  logs.reverse().forEach(entry => {
-    // نستخدم appendLog لإنشاء العنصر الجديد وعرضه في الواجهة (يتم إضافته إلى الأعلى باستخدام prepend)
-    appendLog(entry.employeeID, entry.movement, entry.time, entry.status);
-  });
-}
-
-// تشغيل دالة التهيئة عند تحميل الصفحة بالكامل
-window.onload = initApp;
+// تشغيل دالة التهيئة مباشرة لأن السكربت موجود في نهاية ملف index.html
+initApp();
